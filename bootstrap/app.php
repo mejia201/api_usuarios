@@ -3,6 +3,8 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Middleware\HandleCors;
+use App\Http\Middleware\CorsMiddleware;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -12,7 +14,14 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        //
+        //   
+        // $middleware->alias([
+        //     'cors' => HandleCors::class,  // Asegura que CORS esté habilitado
+        // ]);
+
+        $middleware->append(CorsMiddleware::class);
+
+
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

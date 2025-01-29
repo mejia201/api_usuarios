@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Exception;
+use Illuminate\Support\Facades\Validator;
+
 
 class UserController extends Controller
 {
@@ -49,16 +51,21 @@ class UserController extends Controller
 
         try{
 
-            $validated = $request->validate([
+            $validator = Validator::make($request->all(), [
                 'name' => 'required|string|max:255',
                 'email' => 'required|email|unique:users,email',
                 'password' => 'required|min:8',
-        ]);
+            ]);
+            
+            if ($validator->fails()) {
+                return response()->json(['errors' => $validator->errors()], 422);
+            }
+
     
             $user = User::create([
-                'name' => $validated['name'],
-                'email' => $validated['email'],
-                'password' => bcrypt($validated['password']),
+                'name' => $validator['name'],
+                'email' => $validator['email'],
+                'password' => bcrypt($validator['password']),
             ]);
     
             $token = $user->createToken('auth_token')->plainTextToken;
@@ -122,11 +129,17 @@ class UserController extends Controller
             'password' => 'sometimes|min:8',
         ]);
 
-        $user->update(array_filter([
+        $updateData = [
             'name' => $validated['name'] ?? $user->name,
             'email' => $validated['email'] ?? $user->email,
-            'password' => isset($validated['password']) ? bcrypt($validated['password']) : $user->password,
-        ]));
+        ];
+        
+        if (!empty($validated['password'])) {
+            $updateData['password'] = bcrypt($validated['password']);
+        }
+        
+        $user->update($updateData);
+        
 
 
             return response()->json([
@@ -139,26 +152,27 @@ class UserController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
+    public function destroy(Request $request)
     {
-        //
-
-
-        $user = User::find($id);
-
+        // Obtén al usuario autenticado
+        $user = $request->user();
+    
+        // Si el usuario no existe
         if (!$user) {
             return response()->json(['message' => 'User not found'], 404);
         }
     
+        // Elimina el usuario
         $user->delete();
+    
+        // Devuelve la respuesta
         return response()->json(['message' => 'User deleted successfully'], 200);
-
     }
-
+    
 
     public function statistics() {
         return response()->json([
-            'daily' => User::whereDate('created_at', Carbon::today())->count(),
+            'daily' => User::whereNotNull('created_at')->whereDate('created_at', Carbon::today())->count(),
             'weekly' => User::whereBetween('created_at', [Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek()])->count(),
             'monthly' => User::whereMonth('created_at', Carbon::now()->month)->count(),
         ], 200);
